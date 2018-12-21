@@ -1,0 +1,11 @@
+{
+  "name": "view-node-engine",
+  "version": "1.0.1-rc",
+  "main": "index.js",
+  "author": "zonebond",
+  "license": "MIT",
+  "private": false,
+  "peerDependencies": {
+    "view-node-engine": "^1.0.0"
+  }
+}

@@ -1,0 +1,132 @@
+.effect(@properties, @duction) {
+  transition-property: @properties;
+  transition-duration: @duction;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@select-color: rgb(61, 157, 247);
+@select-color-bg: rgba(61, 157, 247, 0.096);
+
+@over-color: rgba(125, 167, 206, 0.4);
+
+@box: 0px;
+
+.cursor() {
+  cursor: pointer;
+  cursor: url(assets/Aj_cursor_enlarged24x24.png) 2 2, pointer;
+}
+
+.aw {
+  .cursor();
+  &:hover {
+    box-shadow: 0 0 2px #40a9ff;
+  }
+}
+
+.cover() {
+  display: inline-block;
+  position: absolute;
+  top: @box; left: @box;
+  bottom: @box; right: @box;
+}
+
+.vn-wrapper {
+  .cursor();
+  position: relative;
+  display: inline-block;
+  width: auto;
+  height: auto;
+
+  & > .vn-hotpoint {
+    .cover();
+  }
+
+  & > .vn-cover {
+    .cover();
+    .effect(~'opacity, background, border, transform', 700ms);
+
+    pointer-events: none;
+    opacity: 0;
+
+    &.over {
+      opacity: 1;
+      box-shadow: 0 0 20px @over-color;
+      background: @over-color;
+      border: 1px solid @over-color;
+      z-index: 9999;
+    }
+
+    &.select {
+      opacity: 1;
+      // box-shadow: 0 0 20px @select-color;
+      z-index: 9999;
+      background: @select-color-bg;
+      border: 1px solid @select-color;
+    }
+  }
+}
+
+.options-view {
+  padding: 10px;
+}
+
+.option-item {
+  @height: 35px;
+  @border-color: #6d6e6e93;
+
+  width: 100%;
+  height: @height;
+  font-weight: bolder;
+
+  .config-box() {
+    .effect(~'color, background, border-color, box-shadow', 600ms);
+    height: @height;
+    border-bottom: 1px solid @border-color;
+    background: #ffffffe5;
+
+    height: @height;
+    line-height: @height;
+    display: inline-block;
+  }
+
+  .config-box-hoverable() {
+    .config-box();
+    &:hover {
+      color: white;
+      background: @select-color;
+      border-color: @select-color;
+    }
+  }
+
+  & > .o-label {
+    .config-box();
+    .aw();
+
+    width: 26%;
+    text-align: right;
+    padding: 0 2px;
+    color:  black;
+    background: transparent;
+
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  & > .o-value {
+    .aw();
+    .config-box-hoverable();
+    flex: 1 0;
+  }
+
+  &:hover {
+    & > .o-label {
+      border-color: @select-color;
+      background: white;
+    }
+
+    & > .o-value {
+      box-shadow: none;
+    }
+  }
+}
