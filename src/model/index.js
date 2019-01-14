@@ -4,14 +4,32 @@
  * @github - github.com/zonebond
  * @e-mail - zonebond@126.com
  */
+
 import { RKS, dataParse, got, noop } from 'view-node-engine/tools'
 
+const name   = 0x31AAD2;
+const locker = typeof Symbol === 'function' && Symbol['for'] && Symbol['for'](name) || name;
+
 export default class Node {
+  __class_symbol__ = locker;
+
+  child = {};
+
   constructor(data, parent) {
     this.__$raw__ = data;
     this.__$RKS__ = RKS();
     this.__data__ = dataParse(data);
-    this.__parent__ = parent;
+
+    this.parent = parent;
+
+    this.serve_provider();
+  }
+
+  set parent(value) {
+    if(this.__parent__ !== value) {
+      this.__parent__ = value;
+      value.registryID2Store(this);
+    }
   }
 
   get parent() {
@@ -23,7 +41,7 @@ export default class Node {
   }
 
   get id() {
-    return this.attrs.id;
+    return this.data.id || this.attrs.id;
   }
 
   get type() {
@@ -46,11 +64,11 @@ export default class Node {
   }
 
   set children(value) {
-    this.__children__ = value;
+    this.__children__ = value ? this.createChildren(Array.isArray(value) ? value : [value]) : null;
   }
 
   createChildren(children) {
-    return Array.isArray(children) ? children.map(c => new Node(c, this)) : null;
+    return Array.isArray(children) ? children.map(c => (c.__class_symbol__ ? (c.parent = this, c) : new Node(c, this))) : null;
   }
 
   updateSource = (name, value) => {
@@ -100,15 +118,17 @@ export default class Node {
   }
 
   dispatchEvent(event) {
+    if(event.__$stopped$__)
+      return;
+
     if(!event.target)
       event.target = this;
 
-    const target = this.store || this.parent;
+    const target = this.store && event.target !== this ? this.store : this.parent;
 
     if(target) {
-      target.dispatchEvent(event);
+      target === this.store ? target._dispatchEvent_(event) : target.dispatchEvent(event);
     }
-
   }
 
   get store() {
@@ -116,6 +136,45 @@ export default class Node {
   }
 
   set store(value) {
-    this.__store__ = (value.__node__ = this, value.createMapping(), value);
+    this.__store__    = (value.node = this, value.createMapping(), value);
+    this.__provider__ = value.provider;
+  }
+
+  serve_provider() {
+    const serve = this.provider.serve || noop;
+    // console.log(`[CONTEXT] ${this.type}.context = ${this.context ? this.context.type : undefined}`);
+    serve(this);
+  }
+
+  registryID2Store(child) {
+    const id = child.id;
+    if(!id) return;
+
+    if(this.store || !this.parent) {
+      if(this.child[id]) {
+        throw new Error(`NODE ID must be unique！but we got another “${id}” again.`)
+      } else {
+        this.child[id] = child;
+      }
+      // this.child[child.id] = child;
+    } else {
+      this.parent.registryID2Store(child);
+    }
+  }
+
+  get provider () {
+    return this.context ? this.context.store.provider : got(this.__provider__, {});
+  }
+
+  get context() {
+    if(this.parent) {
+      return this.parent.store ? this.parent : this.parent.context;
+    } else {
+      return null;
+    }
+  }
+
+  get ids() {
+    return this.child;
   }
 }

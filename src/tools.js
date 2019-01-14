@@ -75,3 +75,7 @@ export function REF2(name, provider, target) {
   const result = {};
   return value ? (result[field] = value, result) : null;
 }
+
+export function symbolfor(key) {
+  return typeof Symbol === 'function' && Symbol['for'] && Symbol['for'](key) || key;
+}

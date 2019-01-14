@@ -26,6 +26,7 @@ const configs = CONFIG({
     model: SRC('model', 'index.js'),
     event: SRC('event.js'),
     index: SRC('index.js'),
+    provider: SRC('provider.js'),
     tools: SRC('tools.js')
   },
   mode: 'production',
