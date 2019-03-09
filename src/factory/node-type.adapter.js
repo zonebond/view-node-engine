@@ -4,28 +4,32 @@
  * @github - github.com/zonebond
  * @e-mail - zonebond@126.com
  */
-import { got } from 'view-node-engine/tools'
+import { got, symbolfor } from 'view-node-engine/tools'
+
+const PRIVATE = symbolfor('priavte');
 
 class TypeAdapter {
   constructor(view, configs) {
-    this._view   = view;
-    this._configs = configs;
+    this[PRIVATE] = {
+      view,
+      configs
+    };
   }
 
   get view() {
-    return this._view;
+    return this[PRIVATE].view;
+  }
+
+  get configs() {
+    return got(this[PRIVATE].configs, {});
   }
 
   get attrs() {
     return got(this.configs.attrs);
   }
 
-  get configs() {
-    return got(this._configs);
-  }
-
   get configurable() {
-    return got(this.configs.options)
+    return got(this.configs.options);
   }
 
   get viewonly() {
@@ -36,12 +40,15 @@ class TypeAdapter {
     return got(this.configs.usesprite, true);
   }
 
-  render = node => {
-    this.node = node;
-    return this;
+  get events() {
+    return this.configs.events;
+  }
+
+  get executors() {
+    return this.configs.executors;
   }
 }
 
-export default function NodeTypeAdapter(view, configs) {
+export default function NODE_TYPEADAPTER(view, configs) {
   return new TypeAdapter(view, configs);
 }

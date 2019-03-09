@@ -4,7 +4,7 @@
  * @github - github.com/zonebond
  * @e-mail - zonebond@126.com
  */
-import { got, noop } from 'view-node-engine/tools'
+import { symbolfor, got, noop } from 'view-node-engine/tools'
 
 export default class Event {
   target;
@@ -39,7 +39,13 @@ export function handle(...types) {
   return decorator;
 }
 
+const MAPPING = symbolfor(0x55ADD1);
+
 export class Listener {
+
+  constructor() {
+    this[MAPPING] = {};
+  }
 
   get node() {
     return this.__node__;
@@ -53,10 +59,9 @@ export class Listener {
   }
 
   createMapping() {
-    const listeners = this.__init__;
-    if(!Array.isArray(listeners)) return;
+    const listeners = got(this.__init__, []);
 
-    const mapping = {};
+    const mapping = this[MAPPING];
 
     listeners.forEach(([handle, ...types]) => {
       types.forEach(type => {
@@ -68,24 +73,33 @@ export class Listener {
     });
 
     this.__dispatchEvent__ = (evt) => {
-      const handles = mapping[evt.type];
+      const type    = evt.type;
+      const handles = mapping[type]
       if(Array.isArray(handles)) {
         handles.forEach(handle => {
-          this[handle](evt);
+          if(typeof(handle) !== 'string') {
+            handle(evt);
+          } else {
+            this[handle](evt);
+          }
           evt.__handled__();
         });
       }
     }
   }
 
-  get _dispatchEvent_() {
-    return got(this.__dispatchEvent__, noop);
+  dispatchEvent = evt => {
+    this.__dispatchEvent__(evt);
   }
 
-  dispatchEvent = evt => {
-    if(this.node) {
-      this.node.dispatchEvent(evt);
+  plugHandle(type, handle) {
+    let handles = this[MAPPING][type];
+
+    if(!handles) {
+      this[MAPPING][type] = handles = [];
     }
+
+    handles.push(handle);
   }
 
 }

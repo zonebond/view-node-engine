@@ -5,7 +5,7 @@
  * @e-mail - zonebond@126.com
  */
 
-import { RKS, dataParse, got, noop } from 'view-node-engine/tools'
+import { RKS, dataParse, got, noop, PluginGo } from 'view-node-engine/tools'
 
 const name   = 0x31AAD2;
 const locker = typeof Symbol === 'function' && Symbol['for'] && Symbol['for'](name) || name;
@@ -41,7 +41,7 @@ export default class Node {
   }
 
   get id() {
-    return this.data.id || this.attrs.id;
+    return this.data.id || got(this.attrs, {}).id;
   }
 
   get type() {
@@ -49,11 +49,24 @@ export default class Node {
   }
 
   get attrs() {
-    return got(this.data.attrs, {});
+    return this.data.attrs;
   }
 
   get options() {
-    return got(this.data.options);
+    return this.data.options;
+  }
+
+  get context() {
+    return this.parent ? this.top.data.context : this.data.context;
+  }
+
+  set context(value) {
+    if(!this.parent) {
+      const next_ctx = this.data.context = value;
+    }
+    else {
+      this.top.context = value;
+    }
   }
 
   get children() {
@@ -65,6 +78,14 @@ export default class Node {
 
   set children(value) {
     this.__children__ = value ? this.createChildren(Array.isArray(value) ? value : [value]) : null;
+  }
+
+  get executes() {
+    return got(this.data.executes);
+  }
+
+  set executes(value) {
+    this.data.executes = value;
   }
 
   createChildren(children) {
@@ -117,6 +138,10 @@ export default class Node {
     return (this.__tapable__ || noop)(this);
   }
 
+  get adapter() {
+    return this[0xAC00213];
+  }
+
   dispatchEvent(event) {
     if(event.__$stopped$__)
       return;
@@ -124,10 +149,19 @@ export default class Node {
     if(!event.target)
       event.target = this;
 
-    const target = this.store && event.target !== this ? this.store : this.parent;
+    const plugin = this.plugin(NODE_PLUGIN.EXECUTION);
+    if(plugin && event.target === this && this.executes) {
+      plugin.use(this, event.type);
+    }
 
-    if(target) {
-      target === this.store ? target._dispatchEvent_(event) : target.dispatchEvent(event);
+    if(this.store) {
+      this.store.dispatchEvent(event);
+    }
+
+    const parent = this.parent;
+
+    if(parent) {
+      parent.dispatchEvent(event);
     }
   }
 
@@ -141,7 +175,7 @@ export default class Node {
   }
 
   serve_provider() {
-    const serve = this.provider.serve || noop;
+    const serve = got(this.provider, {}).serve || noop;
     // console.log(`[CONTEXT] ${this.type}.context = ${this.context ? this.context.type : undefined}`);
     serve(this);
   }
@@ -163,12 +197,12 @@ export default class Node {
   }
 
   get provider () {
-    return this.context ? this.context.store.provider : got(this.__provider__, {});
+    return this.store_context ? this.store_context.store.provider : got(this.__provider__, {});
   }
 
-  get context() {
+  get store_context() {
     if(this.parent) {
-      return this.parent.store ? this.parent : this.parent.context;
+      return this.parent.store ? this.parent : this.parent.store_context;
     } else {
       return null;
     }
@@ -177,4 +211,66 @@ export default class Node {
   get ids() {
     return this.child;
   }
+
+  get top() {
+    if(this.parent) {
+      return this.parent.top;
+    } else {
+      return this;
+    }
+  }
+
+  get globalExecutors() {
+    return got(this.top.context, {}).executors;
+  }
+
+  plugin(name, callback) {
+    if(!this.__plugin_go__) {
+      this.__plugin_go__ = new PluginGo();
+    }
+
+    const pg = this.__plugin_go__;
+
+    if(callback === undefined) {
+      // if this function only has one argument, it will trigger plugin who name is input-name
+      return pg.load(name);
+    } else {
+      // register plugin
+      pg.plug(name, callback);
+    }
+  }
+
+  serialized() {
+    const persist  = [
+      'id',
+      'type',
+      'executes',
+      'attrs',
+      'options',
+      'children'
+    ].reduce((acc, field) => {
+      const data = this[field];
+      if(data) {
+        acc[field] = field !== 'children'
+                  ? data
+                  : this.children.map(child => child.serialized());
+      }
+      return acc;
+    }, {});
+
+    if(!this.parent) {
+      persist.context = this.context;
+    }
+
+    return persist;
+  }
 }
+
+export const NODE_PLUGIN = {
+  SET_CONTEXT: '-set-context-:plugin-',
+
+  FORCE_GET: '-force-get-:plugin-',
+  EXECUTION: '-execution-:plugin-',
+  RESPONSED: '-responsed-:plugin-',
+  SET_MODEL: '-set-model-:plugin-'
+};

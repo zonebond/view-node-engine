@@ -5,7 +5,7 @@
  * @e-mail - zonebond@126.com
  */
 
-import NodeTypeAdapter from './node-type.adapter'
+import NODE_TYPEADAPTER from './node-type.adapter'
 import { normalizedType } from 'view-node-engine/tools'
 
 const name   = 0xCF31D2;
@@ -25,20 +25,34 @@ class NodeFactoryAgent {
     factories[type] = Factory;
   }
 
-  static NodeType(node) {
-    const type    = node.type;
-    const adapter = factories[type];
+  static NodeAdapter(type) {
+    if(!type)
+      throw new Error(`You must input a type!`);
 
+    const adapter = factories[type];
     if(!adapter)
       throw new Error(`There is no registered "${type}" corresponding "NodeFactory!"`);
 
-    return adapter.render(node);
+    return adapter;
+  }
+
+  static NodeType(node) {
+    const type = node.type;
+
+    if(!type)
+      throw new Error(`There has no correct "Type" with the node!`);
+
+    const adapter = NFA.NodeAdapter(type);
+
+    node[0xAC00213] = adapter;
+
+    return node;
   }
 
   static DefineType(name) {
     return function(configs, view) {
       name = normalizedType(name || view.name);
-      const factory = NodeTypeAdapter(view, configs);
+      const factory = NODE_TYPEADAPTER(view, configs);
 
       NFA.RegisterNodeFactory(name, factory);
     }
