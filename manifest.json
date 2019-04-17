@@ -1,6 +1,6 @@
 {
   "name": "view-node-engine",
-  "version": "1.0.6-c",
+  "version": "1.0.7-c",
   "main": "index.js",
   "author": "zonebond",
   "license": "MIT",

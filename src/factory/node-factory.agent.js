@@ -60,5 +60,6 @@ class NodeFactoryAgent {
 }
 
 NFA = NodeFactoryAgent;
+NFA.types = factories;
 
 export default NFA

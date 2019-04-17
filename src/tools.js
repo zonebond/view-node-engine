@@ -130,6 +130,6 @@ export class PluginGo {
       return plugin;
     }
 
-    return null;
+    return { use: noop, die: noop };
   }
 }

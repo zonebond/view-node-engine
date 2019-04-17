@@ -80,6 +80,22 @@ export default class Node {
     this.__children__ = value ? this.createChildren(Array.isArray(value) ? value : [value]) : null;
   }
 
+  addChild(child) {
+    if(child === null || child === undefined) return;
+    child = Array.isArray(child) ? child : [child];
+    this.children = Array.isArray(this.__children__) ? this.__children__.concat(child) : child;
+    this.plugin(NODE_PLUGIN.ADD_CHILD).use(this);
+    this.plugin(NODE_PLUGIN.UPDATE_DISPLAY_LIST).use(this);
+  }
+
+  removeChild(child) {
+    const children = this.__children__;
+    if(Array.isArray(children) && children.some((c, i) === child ? (children.splice(i, 1), true) : false)) {
+      this.plugin(NODE_PLUGIN.REMOVE_CHILD).use(this);
+      this.plugin(NODE_PLUGIN.UPDATE_DISPLAY_LIST).use(this);
+    }
+  }
+
   get executes() {
     return got(this.data.executes);
   }
@@ -267,10 +283,16 @@ export default class Node {
 }
 
 export const NODE_PLUGIN = {
+  TAP_NODE: '-tap-node-:plugin-',
+
   SET_CONTEXT: '-set-context-:plugin-',
 
   FORCE_GET: '-force-get-:plugin-',
   EXECUTION: '-execution-:plugin-',
   RESPONSED: '-responsed-:plugin-',
-  SET_MODEL: '-set-model-:plugin-'
+  SET_MODEL: '-set-model-:plugin-',
+
+  ADD_CHILD: '-add-child-:plugin-',
+  REMOVE_CHILD: '-remove-child-:plugin-',
+  UPDATE_DISPLAY_LIST: '-update-display-list-:plugin-'
 };
