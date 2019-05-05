@@ -109,6 +109,10 @@ class Plugin {
   }
 }
 
+export function deepclone(object) {
+  return JSON.parse(JSON.stringify(object));
+}
+
 export class PluginGo {
 
   __plugins__ = [];

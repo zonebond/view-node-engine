@@ -5,35 +5,80 @@
  * @e-mail - zonebond@126.com
  */
 
-import { RKS, dataParse, got, noop, PluginGo } from 'view-node-engine/tools'
+import { RKS, dataParse, deepclone, got, noop, PluginGo, symbolfor } from 'view-node-engine/tools'
 
-const name   = 0x31AAD2;
-const locker = typeof Symbol === 'function' && Symbol['for'] && Symbol['for'](name) || name;
+const LOCKER  = symbolfor('VIEW-NODE');
+const CONTEXT = symbolfor(0x653A82);
 
 export default class Node {
-  __class_symbol__ = locker;
+  ____       = LOCKER;
+  __parent__ = null
+
+  shouldUpdateFlag = false;
 
   child = {};
 
   constructor(data, parent) {
-    this.__$raw__ = data;
+    const raw = this.__$raw__ = deepclone(data);
+
     this.__$RKS__ = RKS();
-    this.__data__ = dataParse(data);
+    this.__data__ = dataParse(raw);
 
-    this.parent = parent;
+    // this.parent = parent;
+    // this.serve_provider();
 
-    this.serve_provider();
+    if(parent) {
+      this.parent = parent;
+      this.serve_provider();
+    }
+
   }
 
   set parent(value) {
-    if(this.__parent__ !== value) {
-      this.__parent__ = value;
-      value.registryID2Store(this);
-    }
+    if(value && value.__$RKS__ === this.__$RKS__)
+      throw new Error('ERROR !! Can not set node parent = self!!!');
+
+    if(this.parent === value)
+      return
+
+    if(!value)
+      return this.registryID2Store(true);
+
+    const prev = this.__parent__, next = value;
+    if(prev && next && prev.__$RKS__ === next.__$RKS__)
+      return
+
+    this.shouldUpdateFlag = true;
+    this.__parent__ = value;
+
+    // console.table({
+    //   'owner': `[${this.type}, ${this.__$RKS__}]`,
+    //   'scope': `[${this.scope.type}, ${this.scope.__$RKS__}]`
+    // })
+
+    this.registryID2Store();
   }
 
   get parent() {
     return this.__parent__;
+  }
+
+  registryID2Store(unregistry = false) {
+    const { id, scope } = this;
+
+    if(id && scope.store) {
+      if(unregistry) {
+        delete scope.child[id]
+        // console.log(scope.child, 'delete', id);
+        return
+      }
+
+      if(scope.child[id]) {
+        throw new Error(`NODE ID must be unique！but we got another “${id}” again.`)
+      } else {
+        scope.child[id] = this;
+      }
+    }
   }
 
   get data() {
@@ -56,34 +101,41 @@ export default class Node {
     return this.data.options;
   }
 
+  get scope() {
+    if(this.parent)
+      return this.parent.store ? this.parent : this.parent.scope;
+    else
+      return this
+  }
+
   get context() {
-    return this.parent ? this.top.data.context : this.data.context;
+    return this.scope.data.context;
   }
 
   set context(value) {
-    if(!this.parent) {
-      const next_ctx = this.data.context = value;
-    }
-    else {
-      this.top.context = value;
-    }
+    this.scope.data.context = value;
   }
 
   get children() {
-    if(!this.__children__) {
-      this.children = this.createChildren(this.data.children);
+    if(this.__children__ === undefined) {
+      const data_children = this.data.children;
+      this.__children__ = data_children ? this.createChildren(this.data.children) : null;
     }
     return this.__children__;
   }
 
   set children(value) {
-    this.__children__ = value ? this.createChildren(Array.isArray(value) ? value : [value]) : null;
+    this.__children__ = value ? this.createChildren(value) : null;
   }
 
   addChild(child) {
     if(child === null || child === undefined) return;
+
     child = Array.isArray(child) ? child : [child];
-    this.children = Array.isArray(this.__children__) ? this.__children__.concat(child) : child;
+    this.children = this.__children__ ? this.__children__.concat(child) : child;
+
+    this.shouldUpdateFlag = true;
+
     this.plugin(NODE_PLUGIN.ADD_CHILD).use(this);
     this.plugin(NODE_PLUGIN.UPDATE_DISPLAY_LIST).use(this);
   }
@@ -91,6 +143,9 @@ export default class Node {
   removeChild(child) {
     const children = this.__children__;
     if(Array.isArray(children) && children.some((c, i) === child ? (children.splice(i, 1), true) : false)) {
+
+      this.shouldUpdateFlag = true;
+
       this.plugin(NODE_PLUGIN.REMOVE_CHILD).use(this);
       this.plugin(NODE_PLUGIN.UPDATE_DISPLAY_LIST).use(this);
     }
@@ -105,10 +160,15 @@ export default class Node {
   }
 
   createChildren(children) {
-    return Array.isArray(children) ? children.map(c => (c.__class_symbol__ ? (c.parent = this, c) : new Node(c, this))) : null;
+    if(!Array.isArray(children))
+      throw new Error(`The argument of Node's "createChildren" method must be "Array" Type! but we got '${children}'`);
+
+    return children.map(child => isNode(child) ? (child.parent = this, child) : new Node(child, this));
   }
 
   updateSource = (name, value) => {
+    this.shouldUpdateFlag = true;
+
     if(!this.options)
       this.options = {};
 
@@ -118,12 +178,13 @@ export default class Node {
       delete this.options[name];
 
     const cb = this.__subscriber_callback__
+
     if(typeof cb === 'function') {
       cb(this.options, name, value);
     }
 
     // TODO: boardcast NODE-CHANGE-EVENT
-    // console.log(this.__$raw__.options, this.__data__.options, this.options);
+    this.plugin(NODE_PLUGIN.UPDATE_SOURCE).use(this.options, name, value);
   }
 
   get update() {
@@ -165,17 +226,16 @@ export default class Node {
     if(!event.target)
       event.target = this;
 
-    const plugin = this.plugin(NODE_PLUGIN.EXECUTION);
-    if(plugin && event.target === this && this.executes) {
-      plugin.use(this, event.type);
+    if(event.target === this && this.executes) {
+      this.plugin(NODE_PLUGIN.EXECUTION).use(this, event.type);
     }
 
-    if(this.store) {
-      this.store.dispatchEvent(event);
+    const store = this.scope.store;
+    if(store) {
+      return store.dispatchEvent(event);
     }
 
     const parent = this.parent;
-
     if(parent) {
       parent.dispatchEvent(event);
     }
@@ -186,30 +246,16 @@ export default class Node {
   }
 
   set store(value) {
+    if(!value)
+      return this.__store__ = null;
+
     this.__store__    = (value.node = this, value.createMapping(), value);
     this.__provider__ = value.provider;
   }
 
   serve_provider() {
     const serve = got(this.provider, {}).serve || noop;
-    // console.log(`[CONTEXT] ${this.type}.context = ${this.context ? this.context.type : undefined}`);
     serve(this);
-  }
-
-  registryID2Store(child) {
-    const id = child.id;
-    if(!id) return;
-
-    if(this.store || !this.parent) {
-      if(this.child[id]) {
-        throw new Error(`NODE ID must be unique！but we got another “${id}” again.`)
-      } else {
-        this.child[id] = child;
-      }
-      // this.child[child.id] = child;
-    } else {
-      this.parent.registryID2Store(child);
-    }
   }
 
   get provider () {
@@ -228,16 +274,12 @@ export default class Node {
     return this.child;
   }
 
-  get top() {
+  get global() {
     if(this.parent) {
-      return this.parent.top;
+      return this.parent.global;
     } else {
       return this;
     }
-  }
-
-  get globalExecutors() {
-    return got(this.top.context, {}).executors;
   }
 
   plugin(name, callback) {
@@ -274,11 +316,14 @@ export default class Node {
       return acc;
     }, {});
 
-    if(!this.parent) {
-      persist.context = this.context;
-    }
-
     return persist;
+  }
+
+  dispose() {
+    this.parent = null;
+    this.store  = null;
+
+    // console && console.warn(`[DISPOSED] ${this.__$RKS__}\t${this.type}`);
   }
 }
 
@@ -294,5 +339,11 @@ export const NODE_PLUGIN = {
 
   ADD_CHILD: '-add-child-:plugin-',
   REMOVE_CHILD: '-remove-child-:plugin-',
-  UPDATE_DISPLAY_LIST: '-update-display-list-:plugin-'
+  UPDATE_DISPLAY_LIST: '-update-display-list-:plugin-',
+
+  UPDATE_SOURCE: '-update-source-:plugin-'
 };
+
+export function isNode(value) {
+  return value.____ === LOCKER;
+}

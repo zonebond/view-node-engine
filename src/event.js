@@ -102,4 +102,7 @@ export class Listener {
     handles.push(handle);
   }
 
+  dispose() {
+    return null;
+  }
 }
