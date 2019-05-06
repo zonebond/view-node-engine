@@ -142,7 +142,13 @@ export default class Node {
 
   removeChild(child) {
     const children = this.__children__;
-    if(Array.isArray(children) && children.some((c, i) === child ? (children.splice(i, 1), true) : false)) {
+    if(Array.isArray(children)) {
+      child = Array.isArray(child) ? child : [child];
+
+      while(child.length) {
+        const t = child.pop();
+        children.some((c, i) => c === t ? (children.splice(i, 1), true) : false);
+      }
 
       this.shouldUpdateFlag = true;
 
